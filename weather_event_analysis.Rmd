@@ -1,0 +1,131 @@
+# Analysis of U.S. Weather Events (1996-2011)
+
+## Synopsis
+The purpose of this report is to analyze data from the [NOAA Storm Database](http://www.ncdc.noaa.gov/stormevents/) and determine which events are most harmful to population health and which events have the greatest economic consequences.
+
+## Data Processing
+The raw data used for this analysis was downloaded from the following url:
+    [Storm Data](https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2)
+    
+### Reading in the data
+I first read in the entire data set directly from the zipped csv file provided at the link above. The file contains 37 columns, eight of which we need to perform our analysis. Therefore we ignore all other columns and reset the column names to a more readable format. I read the date column in as a year value and ignore any other information. The event type is converted to all uppercase as it's read in.
+
+<table cellspacing="10">
+    <tr>
+        <th>Original Column Name</th>
+        <th>Formatted Column Name</th>
+        <th>Description</th>
+    </tr>
+    <tr>
+        <td>BGN_DATE</td>
+        <td>year</td>
+        <td>The year the weather event occurred.</td>
+    </tr>
+    <tr>
+        <td>EVTYPE</td>
+        <td>type</td>
+        <td>The type of the weather event.</td>
+    </tr>
+    <tr>
+        <td>FATALITIES</td>
+        <td>fatalities</td>
+        <td>The number of fatalities caused by the weather event.</td>
+    </tr>
+    <tr>
+        <td>INJURIES</td>
+        <td>injuries</td>
+        <td>The number of injuries caused by the weather event.</td>
+    </tr>
+    <tr>
+        <td>PROPDMG</td>
+        <td>propertyDamage
+        <td>The cost in dollars of property damage caused by the weather event.<td>
+    </tr>
+    <tr>
+        <td>PROPDMGEXP</td>
+        <td>propertyDamageScale</td>
+        <td>The scale of the property damage caused by the weather event.
+            <ul>
+                <li>K = thousands of dollars</li>
+                <li>M = millions of dollars</li>
+                <li>B = billions of dollars</li>
+            </ul>
+        </td>
+    </tr>
+    <tr>
+        <td>CROPDMG</td>
+        <td>cropDamage
+        <td>The cost in dollars of crop damage caused by the weather event.<td>
+    </tr>
+    <tr>
+        <td>CROPDMGEXP</td>
+        <td>cropDamageScale</td>
+        <td>The scale of the crop damage caused by the weather event.
+            <ul>
+                <li>K = thousands of dollars</li>
+                <li>M = millions of dollars</li>
+                <li>B = billions of dollars</li>
+            </ul>
+        </td>
+    </tr> 
+</table>
+
+```{r readInData, cache=TRUE}
+# Set up date processing and convert all event types to upper case
+library("lubridate")
+setClass("myDate")
+setClass("typeUpper")
+setAs("character", "myDate", function(from) as.numeric(year(mdy_hms(from))))
+setAs("character", "typeUpper", function(from) toupper(from))
+
+
+# Filter out unnecessary columns
+columnsToRead = c("NULL",
+                  "myDate",
+                  rep("NULL", 5),
+                  "typeUpper",
+                  rep("NULL", 14),
+                  "numeric",    "numeric",  "numeric",   "character",  "numeric",    "character",
+                  rep("NULL", 9))
+
+# read data
+eventData = read.csv("repdata-data-StormData.csv.bz2", header=TRUE, colClasses=columnsToRead, comment.char="")
+colnames(eventData) <- 
+ c("year", "type", "fatalities", "injuries", "propertyDamage", "propertyDamageScale", "cropDamage", "cropDamageScale")
+```
+
+
+### Cleaning the data
+There are several things I do to clean up the raw data set. First, I filter out all weather events that happened before 1996. According to the [NOAA](http://www.ncdc.noaa.gov/stormevents/details.jsp?type=eventtype), 1996 is the year that information on all event types started to be collected. It also makes sense to limit the data to recent years as weather patterns change and dollar values in the data have not been adjusted for inflation.
+
+``` {r filterEarlyYears, cache=TRUE, dependson="readInData"}
+eventData <- eventData[eventData$year >= 1996, ]
+```
+
+Next I eliminate events that do not have any fatalities/injuries and property/crop damage.
+
+``` {r removeEventsWithoutEffects, cache=TRUE, dependson="filterEarlyYears"}
+eventData <- eventData[eventData$fatalities != 0 | eventData$fatalities != 0 | 
+                       eventData$propertyDamage != 0 | eventData$cropDamage != 0, ]
+```
+
+Next I replace each pair of property and crop damage columns with a single column that has the numeric value representing each pair.
+``` {r setNumericValues, cache=TRUE, dependson="removeEventsWithoutEffects"}
+# return actual numeric value for damage data
+# expects a two-column dataframe that contains the damage and damage scale columns
+getNumericValue <- function(damageColumns)
+{
+    if ("" == damageColumns[2]) return(as.numeric(damageColumns[1]))
+    if ("K" == damageColumns[2]) return(1000 * as.numeric(damageColumns[1]))
+    if ("M" == damageColumns[2]) return(1000000 * as.numeric(damageColumns[1]))
+    if ("B" == damageColumns[2]) return(1000000000 * as.numeric(damageColumns[1]))
+}
+
+propertyDamage <- apply(eventData[, c("propertyDamage", "propertyDamageScale")], 1, getNumericValue)
+cropDamage <- apply(eventData[, c("cropDamage", "cropDamageScale")], 1, getNumericValue)
+eventData <- cbind(eventData[, 1:4], propertyDamage, cropDamage)
+```
+
+The data now has the following format:
+``` {r showDataFormat, dependson="setNumericValues"}
+head(eventData)

@@ -1,25 +1,36 @@
 # Set up date processing
 library("lubridate")
-setClass('myDate')
-setAs("numeric", "myDate", function(from) as.numeric(year(mdy_hms(from))))
+setClass("myDate")
+setClass("typeUpper")
+setAs("character", "myDate", function(from) as.numeric(year(mdy_hms(from))))
+setAs("character", "typeUpper", function(from) toupper(from))
 
-colnames <- 
-    c("STATE__",   "BGN_DATE",   "BGN_TIME",   "TIME_ZONE",  "COUNTY",     "COUNTYNAME",
-      "STATE",     "EVTYPE",     "BGN_RANGE",  "BGN_AZI",    "BGN_LOCATI", "END_DATE",  
-      "END_TIME",  "COUNTY_END", "COUNTYENDN", "END_RANGE",  "END_AZI",    "END_LOCATI",
-      "LENGTH",    "WIDTH",      "F",          "MAG",        "FATALITIES", "INJURIES",  
-      "PROPDMG",   "PROPDMGEXP", "CROPDMG",    "CROPDMGEXP", "WFO",        "STATEOFFIC",
-      "ZONENAMES", "LATITUDE",   "LONGITUDE",  "LATITUDE_E", "LONGITUDE_", "REMARKS",
-      "REFNUM")
+#colnames <- 
+#    c("STATE__",   "BGN_DATE",   "BGN_TIME",   "TIME_ZONE",  "COUNTY",     "COUNTYNAME",
+#      "STATE",     "EVTYPE",     "BGN_RANGE",  "BGN_AZI",    "BGN_LOCATI", "END_DATE",  
+#      "END_TIME",  "COUNTY_END", "COUNTYENDN", "END_RANGE",  "END_AZI",    "END_LOCATI",
+#      "LENGTH",    "WIDTH",      "F",          "MAG",        "FATALITIES", "INJURIES",  
+#      "PROPDMG",   "PROPDMGEXP", "CROPDMG",    "CROPDMGEXP", "WFO",        "STATEOFFIC",
+#      "ZONENAMES", "LATITUDE",   "LONGITUDE",  "LATITUDE_E", "LONGITUDE_", "REMARKS",
+#      "REFNUM")
 
-readcols <-
-    c("NULL",      "myDate",     "NULL",       "NULL",       "NULL",       "NULL",
-      "NULL",      "character",  "NULL",       "NULL",       "NULL",       "NULL",  
-      "NULL",      "NULL",       "NULL",       "NULL",       "NULL",       "NULL",
-      "NULL",      "NULL",       "NULL",       "NULL",       "numeric",    "numeric",  
-      "numeric",   "NULL",       "numeric",    "NULL",       "NULL",       "NULL",
-      "NULL",      "NULL",       "NULL",       "NULL",       "NULL",       "NULL",
-      "NULL")
+#readcols <-
+#    c("NULL",      "myDate",     "NULL",       "NULL",       "NULL",       "NULL",
+#      "NULL",      "character",  "NULL",       "NULL",       "NULL",       "NULL",  
+#      "NULL",      "NULL",       "NULL",       "NULL",       "NULL",       "NULL",
+#      "NULL",      "NULL",       "NULL",       "NULL",       "numeric",    "numeric",  
+#      "numeric",   "character",  "numeric",    "character",  "NULL",       "NULL",
+#      "NULL",      "NULL",       "NULL",       "NULL",       "NULL",       "NULL",
+#      "NULL")
+
+columnsToRead = c("NULL",
+                  "myDate",
+                  rep("NULL", 5),
+                  "typeUpper",
+                  rep("NULL", 14),
+                  "numeric",    "numeric",  "numeric",   "character",  "numeric",    "character",
+                  rep("NULL", 9))
+
 head = read.csv("repdata-data-StormData.csv.bz2", header=TRUE, nrows=25)
 
 validEventTypes = as.vector(sapply(
@@ -72,10 +83,31 @@ validEventTypes = as.vector(sapply(
                                "Winter Storm",
                                "Winter Weather"), toupper))
 
-test = read.csv("repdata-data-StormData.csv", header=TRUE, colClasses=readcols, comment.char="")
-test <- test[test$BGN_DATE >= 1996, ]
-test <- test[test$FATALITIES != 0 | test$INJURIES != 0 | test$PROPDMG != 0 | test$CROPDMG != 0, ]
-test$EVTYPE <- as.vector(sapply(test$EVTYPE, toupper))
+eventData = read.csv("repdata-data-StormData.csv.bz2", header=TRUE, colClasses=columnsToRead, comment.char="")
+colnames(eventData) <- 
+    c("year", "type", "fatalities", "injuries", "propertyDamage", "propertyDamageScale", "cropDamage", "cropDamageScale")
+
+eventData <- eventData[eventData$year >= 1996, ]
+eventData <- eventData[eventData$fatalities != 0 | eventData$fatalities != 0 | 
+                       eventData$propertyDamage != 0 | eventData$cropDamage != 0, ]
+
+# return actual numeric value for damage data
+# expects a two-column dataframe that contains the damage and damage scale columns
+getNumericValue <- function(damageColumns)
+{
+    if ("" == damageColumns[2]) return(as.numeric(damageColumns[1]))
+    if ("K" == damageColumns[2]) return(1000 * as.numeric(damageColumns[1]))
+    if ("M" == damageColumns[2]) return(1000000 * as.numeric(damageColumns[1]))
+    if ("B" == damageColumns[2]) return(1000000000 * as.numeric(damageColumns[1]))
+}
+
+propertyDamage <- apply(eventData[, c("propertyDamage", "propertyDamageScale")], 1, getNumericValue)
+cropDamage <- apply(eventData[, c("cropDamage", "cropDamageScale")], 1, getNumericValue)
+eventData <- cbind(eventData[, 1:4], propertyDamage, cropDamage)
+
+head(eventData)
+
+#test$EVTYPE <- as.vector(sapply(test$EVTYPE, toupper))
 
 # List out all of the invalid EVTYPEs originally 141 types
 #badTypes <- test[!(test$EVTYPE %in% validEventTypes), ]
