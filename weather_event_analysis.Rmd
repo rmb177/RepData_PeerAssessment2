@@ -7,7 +7,7 @@ The purpose of this report is to analyze data from the [NOAA Storm Database](htt
 The raw data used for this analysis was downloaded from the following url:
     [Storm Data](https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2)
     
-### Reading in the data
+#### Reading in the data
 I first read in the entire data set directly from the zipped csv file provided at the link above. The file contains 37 columns, eight of which we need to perform our analysis. Therefore we ignore all other columns and reset the column names to a more readable format. I read the date column in as a year value and ignore any other information. The event type is converted to all uppercase as it's read in.
 
 <table cellspacing="10">
@@ -95,7 +95,7 @@ colnames(eventData) <-
 ```
 
 
-### Cleaning the data
+#### Cleaning the data
 There are several things I do to clean up the raw data set. First, I filter out all weather events that happened before 1996. According to the [NOAA](http://www.ncdc.noaa.gov/stormevents/details.jsp?type=eventtype), 1996 is the year that information on all event types started to be collected. It also makes sense to limit the data to recent years as weather patterns change and dollar values in the data have not been adjusted for inflation.
 
 ``` {r filterEarlyYears, cache=TRUE, dependson="readInData"}
@@ -129,3 +129,168 @@ eventData <- cbind(eventData[, 1:4], propertyDamage, cropDamage)
 The data now has the following format:
 ``` {r showDataFormat, dependson="setNumericValues"}
 head(eventData)
+```
+
+#### Cleaning Event Types
+The NOAA documentation specifies the following 48 event types:
+
+``` {r validEventTypes, cache=TRUE}
+validEventTypes <-
+    as.vector(sapply(c("Astronomical Low Tide",   "Avalanche",           "Blizzard",
+                       "Coastal Flood",           "Cold/Wind Chill",     "Debris Flow", 
+                       "Dense Fog",               "Dense Smoke",         "Drought",
+                       "Dust Devil",              "Dust Storm",          "Excessive Heat",
+                       "Extreme Cold/Wind Chill", "Flash Flood",         "Flood",
+                       "Frost/Freeze",            "Funnel Cloud",        "Freezing Fog",
+                       "Hail",                    "Heat",                "Heavy Rain",
+                       "Heavy Snow",              "High Surf",           "High Wind",
+                       "Hurricane (Typhoon)",     "Ice Storm",           "Lake-Effect Snow",
+                       "Lakeshore Flood",         "Lightning",           "Marine Hail",
+                       "Marine High Wind",        "Marine Strong Wind",  "Marine Thunderstorm Wind",
+                       "Rip Current",             "Seiche",              "Sleet",
+                       "Storm Surge/Tide",        "Strong Wind",         "Thunderstorm Wind",
+                       "Tornado",                 "Tropical Depression", "Tropical Storm",
+                       "Tsunami",                 "Volcanic Ash",        "Waterspout",
+                       "Wildfire",                "Winter Storm",        "Winter Weather"), toupper))
+```
+
+
+After displaying the percentage of rows that contain invalid event values and those invalid values, it is clear we need to clean up the event type data.
+``` {r displayBadEventTypes, cache=TRUE, dependson="setNumericValues"}
+invalidEventTypes <- eventData[!(eventData$type %in% validEventTypes), ]
+print(paste("The percentage of events that have invalid event types = ", 
+            round(nrow(invalidEventTypes) / nrow(eventData) * 100, 2)))
+print(unique(invalidEventTypes$type))
+```
+
+Classifying invalid event types is difficult and cannot be done perfectly. For example, does "GUSTY WIND/HAIL" get classified under a wind event type or hail type? I reviewed the invalid event types and classified them as best I could with the rules listed below. After making the substitutions, I then removed any events classified as "OTHER" (both those originally classified as "OTHER" and ones I classified as "OTHER").
+
+``` {r cleanEventTypes, cache=TRUE, dependson="displayBadEventTypes"}
+convertToValidEventType <- function(eventType)
+{
+    if (grepl("MARINE TSTM WIND", eventType)) return("MARINE THUNDERSTORM WIND")
+    if (grepl("TSTM WIND", eventType)) return("THUNDERSTORM WIND")
+    if (grepl("THUNDERSTORM", eventType)) return("THUNDERSTORM WIND")
+    if (grepl("GUSTY WIND", eventType)) return("HIGH WIND")
+    if (!(grepl("^EXTREME", eventType)) & grepl("COLD", eventType)) return("COLD/WIND CHILL")
+    if (grepl("^EXTREME", eventType)) return("EXTREME COLD/WIND CHILL")
+    if (grepl("EXPOSURE", eventType)) return("EXTREME COLD/WIND CHILL")
+    if (grepl("^FOG", eventType)) return("DENSE FOG")
+    if (grepl("ROAD", eventType)) return("WINTER WEATHER")
+    if (grepl("WEATHER", eventType)) return("WINTER WEATHER")
+    if (grepl("BLACK ICE", eventType)) return("WINTER WEATHER")
+    if (grepl("LAKE EFFECT SNOW", eventType)) return("LAKE-EFFECT SNOW")
+    if (!(grepl("^LAKE", eventType)) & grepl("SNOW", eventType)) return("HEAVY SNOW")        
+    if (grepl("SURF", eventType)) return("HIGH SURF")
+    if (grepl("FREEZING SPRAY", eventType)) return("HIGH SURF")
+    if (grepl("FREEZING RAIN", eventType)) return("SLEET")
+    if (grepl("MIX", eventType)) return("SLEET")
+    if (grepl("FREEZ", eventType) & !(grepl("FOG", eventType))) return("FROST/FREEZE")
+    if (grepl("FROST", eventType)) return("FROST/FREEZE")
+    if (grepl("ASTRONOMICAL", eventType)) return("ASTRONOMICAL LOW TIDE")
+    if (grepl("COAST", eventType)) return("COASTAL FLOOD")
+    if (grepl("EROSION", eventType)) return("COASTAL FLOOD")
+    if (grepl("FLASH", eventType)) return("FLASH FLOOD")
+    if (grepl("HURRICANE", eventType)) return("HURRICANE (TYPHOON)")
+    if (grepl("TYPHOON", eventType)) return("HURRICANE (TYPHOON)")
+    if (grepl("CURRENTS", eventType)) return("RIP CURRENT")
+    if (grepl("FIRE", eventType)) return("WILDFIRE")
+    if (grepl("TIDAL", eventType)) return("STORM SURGE/TIDE")
+    if (grepl("SURGE", eventType)) return("STORM SURGE/TIDE")
+    if (grepl("BURST", eventType)) return("HEAVY RAIN")
+    if (grepl("RAIN", eventType)) return("HEAVY RAIN")
+    if (grepl(" SEAS", eventType)) return("MARINE HIGH WIND")
+    if (grepl("SWELLS", eventType)) return("MARINE HIGH WIND")
+    if (grepl("WIND AND WAVE", eventType)) return("MARINE HIGH WIND")
+    if (grepl("RIVER", eventType)) return("FLOOD")
+    if (grepl("DAM", eventType)) return("FLOOD")
+    if (grepl("HIGH WATER", eventType)) return("FLOOD")
+    if (grepl("HEAT", eventType)) return("EXCESSIVE HEAT")
+    if (grepl("BLOWING DUST", eventType)) return("DUST STORM")
+    if (grepl("LANDSPOUT", eventType)) return("DUST DEVIL")
+    if (grepl("^WIND", eventType)) return("HIGH WIND")
+    if (grepl("WINDS", eventType)) return("HIGH WIND")
+    if (grepl("GRADIENT WIND", eventType)) return("HIGH WIND")
+    if (grepl("G40", eventType)) return("HIGH WIND")
+    if (grepl("WHIRLWIND", eventType)) return("TORNADO")
+    if (grepl("SMALL HAIL", eventType)) return("HAIL")
+    if (grepl("ICE JAM", eventType)) return("OTHER")
+    if (grepl("URBAN", eventType)) return("OTHER")
+    if (grepl("SLIDE", eventType)) return("OTHER")
+    if (grepl("SLUMP", eventType)) return("OTHER")
+    if (grepl("GLAZE", eventType)) return("OTHER")
+    if (grepl("DROWN", eventType)) return("OTHER")
+    if (grepl("UNSEASONABLY", eventType)) return("OTHER")
+    if (grepl("ACCIDENT", eventType)) return("OTHER")
+    
+    return(eventType)
+}
+
+eventData$type <- sapply(eventData$type, convertToValidEventType)
+eventData <- eventData[eventData$type != "OTHER", ]
+```
+
+#### Outliers
+Finally, I checked to see if there were any outliers in the data. I generated box plots for all of the values:
+
+``` {r findOutliers, cache=TRUE, dependson="cleanEventTypes"}
+par(mfrow = c(1, 2))
+boxplot(eventData$fatalities, eventData$injuries, 
+        main="Distribution of Fatalities/Injuries",
+        xlab="Fatalities | Injuries")
+
+boxplot(eventData$propertyDamage, eventData$cropDamage,
+        main="Distribution of Property/Crop Damage",
+        xlab="Property | Crop",
+        ylab="Number of Dollars")
+```
+
+It appears there is an outlier in the property damage for a singe event. It appears likely that the data set records the damame in billions rather than millions. I determined the event for this oulier and converted the property damage to millions of dollars.
+
+``` {r fixOutlier, cache=TRUE, dependson="findOutliers"}
+maxIndex = which.max(eventData$propertyDamage)
+print(eventData[maxIndex,])
+eventData$propertyDamage[maxIndex] <- eventData$propertyDamage[maxIndex] / 1000
+```
+
+## Analysis
+
+First draw a graph of the fatalities
+
+``` {r humanHealthPlot, dependson="fixOutlier"}
+library(ggplot2)
+eventData$type <- factor(eventData$type)
+healthData <- setNames(aggregate(eventData$fatalities + eventData$injuries, 
+                                 by=eventData[c("type")], 
+                                 FUN=sum), 
+                       c("type", "amount"))
+healthData <- healthData[order(-healthData$amount),][1:10,]
+
+ggplot(healthData,
+       aes(reorder(healthData$type, order(healthData$amount, decreasing=TRUE)), 
+           healthData$amount)) +
+       ggtitle("Effects of Weather Events on Population Health") +
+       xlab("Event Type") + 
+       ylab("Number of Fatalities and Injuries") +
+       geom_bar(stat="identity") +  
+       theme(axis.text.x = element_text(angle = -45, hjust = 0)) 
+```
+
+Now draw a graph of the damage
+
+``` {r damagePlot, dependson="fixOutlier"}
+damageData <- setNames(aggregate(eventData$propertyDamage + eventData$cropDamage, 
+                                 by=eventData[c("type")], 
+                                 FUN=sum), 
+                       c("type", "amount"))
+damageData <- damageData[order(-damageData$amount),][1:10,]
+
+ggplot(damageData,
+       aes(reorder(damageData$type, order(damageData$amount, decreasing=TRUE)), 
+           damageData$amount)) +
+       ggtitle("Effects of Weather Events on Population Health") +
+       xlab("Event Type") + 
+       ylab("Number of Fatalities and Injuries") +
+       geom_bar(stat="identity") +  
+       theme(axis.text.x = element_text(angle = -45, hjust = 0))
+```

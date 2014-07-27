@@ -23,6 +23,8 @@ setAs("character", "typeUpper", function(from) toupper(from))
 #      "NULL",      "NULL",       "NULL",       "NULL",       "NULL",       "NULL",
 #      "NULL")
 
+#f <- function()
+#{
 columnsToRead = c("NULL",
                   "myDate",
                   rep("NULL", 5),
@@ -30,58 +32,6 @@ columnsToRead = c("NULL",
                   rep("NULL", 14),
                   "numeric",    "numeric",  "numeric",   "character",  "numeric",    "character",
                   rep("NULL", 9))
-
-head = read.csv("repdata-data-StormData.csv.bz2", header=TRUE, nrows=25)
-
-validEventTypes = as.vector(sapply(
-                             c("Astronomical Low Tide",
-                               "Avalanche",
-                               "Blizzard",
-                               "Coastal Flood",
-                               "Cold/Wind Chill", 
-                               "Debris Flow", 
-                               "Dense Fog", 
-                               "Dense Smoke",
-                               "Drought",
-                               "Dust Devil",
-                               "Dust Storm",
-                               "Excessive Heat",
-                               "Extreme Cold/Wind Chill",
-                               "Flash Flood",
-                               "Flood",
-                               "Frost/Freeze",
-                               "Funnel Cloud",
-                               "Freezing Fog",
-                               "Hail",
-                               "Heat",
-                               "Heavy Rain",
-                               "Heavy Snow",
-                               "High Surf",
-                               "High Wind",
-                               "Hurricane (Typhoon)",
-                               "Ice Storm",
-                               "Lake-Effect Snow",
-                               "Lakeshore Flood",
-                               "Lightning",
-                               "Marine Hail",
-                               "Marine High Wind",
-                               "Marine Strong Wind",
-                               "Marine Thunderstorm Wind",
-                               "Rip Current",
-                               "Seiche",
-                               "Sleet",
-                               "Storm Surge/Tide",
-                               "Strong Wind",
-                               "Thunderstorm Wind",
-                               "Tornado",
-                               "Tropical Depression",
-                               "Tropical Storm",
-                               "Tsunami",
-                               "Volcanic Ash",
-                               "Waterspout",
-                               "Wildfire",
-                               "Winter Storm",
-                               "Winter Weather"), toupper))
 
 eventData = read.csv("repdata-data-StormData.csv.bz2", header=TRUE, colClasses=columnsToRead, comment.char="")
 colnames(eventData) <- 
@@ -105,39 +55,117 @@ propertyDamage <- apply(eventData[, c("propertyDamage", "propertyDamageScale")],
 cropDamage <- apply(eventData[, c("cropDamage", "cropDamageScale")], 1, getNumericValue)
 eventData <- cbind(eventData[, 1:4], propertyDamage, cropDamage)
 
-head(eventData)
-
-#test$EVTYPE <- as.vector(sapply(test$EVTYPE, toupper))
-
-# List out all of the invalid EVTYPEs originally 141 types
-#badTypes <- test[!(test$EVTYPE %in% validEventTypes), ]
-#unique(badTypes$EVTYPE)
-
-# Get specific bad events you're searching for
-#tstmIdx <- grep("TSTM", unique(badTypes$EVTYPE))
-#unique(badTypes$EVTYPE)[tstmIdx]
-
-# Clean up code
-#badTypes$EVTYPE <- as.vector(sapply(badTypes$EVTYPE, function(x) if (grepl("NON.*TSTM WIND", x)) "HIGH WIND" else x))
-#badTypes$EVTYPE <- as.vector(sapply(badTypes$EVTYPE, function(x) if (grepl("MARINE TSTM WIND", x)) "MARINE THUNDERSTORM WIND" else x))
-#badTypes$EVTYPE <- as.vector(sapply(badTypes$EVTYPE, function(x) if (grepl("TSTM WIND", x)) "THUNDERSTORM WIND" else x))
-#badTypes$EVTYPE <- as.vector(sapply(badTypes$EVTYPE, function(x) if (grepl("GUSTY WIND", x)) "HIGH WIND" else x))
-#badTypes$EVTYPE <- as.vector(sapply(badTypes$EVTYPE, function(x) if (grepl("COLD", x)) "COLD/WIND CHILL" else x))
-#badTypes$EVTYPE <- as.vector(sapply(badTypes$EVTYPE, function(x) if (grepl("FOG", x)) "DENSE FOG" else x))
-#badTypes$EVTYPE <- as.vector(sapply(badTypes$EVTYPE, function(x) if (grepl("ROAD", x)) "BLIZZARD" else x))
-#badTypes$EVTYPE <- as.vector(sapply(badTypes$EVTYPE, function(x) if (grepl("FLASH", x)) "FLASH FLOOD" else x))
-#badTypes$EVTYPE <- as.vector(sapply(badTypes$EVTYPE, function(x) if (grepl("LAKE EFFECT SNOW", x)) "LAKE-EFFECT SNOW" else x))
-#badTypes$EVTYPE <- as.vector(sapply(badTypes$EVTYPE, function(x) if (grepl("SNOW", x)) "HEAVY SNOW" else x))
-#badTypes$EVTYPE <- as.vector(sapply(badTypes$EVTYPE, function(x) if (grepl("SURF", x)) "HIGH SURF" else x))
-#badTypes$EVTYPE <- as.vector(sapply(badTypes$EVTYPE, function(x) if (grepl("FREEZING SPRAY", x)) "HIGH SURF" else x))
-#badTypes$EVTYPE <- as.vector(sapply(badTypes$EVTYPE, function(x) if (grepl("FREEZ", x)) "FROST/FREEZE" else x))
-#badTypes$EVTYPE <- as.vector(sapply(badTypes$EVTYPE, function(x) if (grepl("FROST", x)) "FROST/FREEZE" else x))
-#badTypes$EVTYPE <- as.vector(sapply(badTypes$EVTYPE, function(x) if (grepl("FREEZING RAIN", x)) "SLEET" else x))
+print(head(eventData))
 
 
+validEventTypes <-
+    as.vector(sapply(c("Astronomical Low Tide",   "Avalanche",           "Blizzard",
+                       "Coastal Flood",           "Cold/Wind Chill",     "Debris Flow", 
+                       "Dense Fog",               "Dense Smoke",         "Drought",
+                       "Dust Devil",              "Dust Storm",          "Excessive Heat",
+                       "Extreme Cold/Wind Chill", "Flash Flood",         "Flood",
+                       "Frost/Freeze",            "Funnel Cloud",        "Freezing Fog",
+                       "Hail",                    "Heat",                "Heavy Rain",
+                       "Heavy Snow",              "High Surf",           "High Wind",
+                       "Hurricane (Typhoon)",     "Ice Storm",           "Lake-Effect Snow",
+                       "Lakeshore Flood",         "Lightning",           "Marine Hail",
+                       "Marine High Wind",        "Marine Strong Wind",  "Marine Thunderstorm Wind",
+                       "Rip Current",             "Seiche",              "Sleet",
+                       "Storm Surge/Tide",        "Strong Wind",         "Thunderstorm Wind",
+                       "Tornado",                 "Tropical Depression", "Tropical Storm",
+                       "Tsunami",                 "Volcanic Ash",        "Waterspout",
+                       "Wildfire",                "Winter Storm",        "Winter Weather"), toupper))
+
+# Display invalid event types
+invalidEventTypes <- eventData[!(eventData$type %in% validEventTypes), ]
+print(paste("The percentage of events that have invalid event types = ", 
+            round(nrow(invalidEventTypes) / nrow(eventData) * 100, 2)))
+print(unique(invalidEventTypes$type))
+
+#}
+
+# Remove invalid event types
+convertToValidEventType <- function(eventType)
+{
+    if (grepl("MARINE TSTM WIND", eventType)) return("MARINE THUNDERSTORM WIND")
+    if (grepl("TSTM WIND", eventType)) return("THUNDERSTORM WIND")
+    if (grepl("THUNDERSTORM", eventType)) return("THUNDERSTORM WIND")
+    if (grepl("GUSTY WIND", eventType)) return("HIGH WIND")
+    if (!(grepl("^EXTREME", eventType)) & grepl("COLD", eventType)) return("COLD/WIND CHILL")
+    if (grepl("^EXTREME", eventType)) return("EXTREME COLD/WIND CHILL")
+    if (grepl("EXPOSURE", eventType)) return("EXTREME COLD/WIND CHILL")
+    if (grepl("^FOG", eventType)) return("DENSE FOG")
+    if (grepl("ROAD", eventType)) return("WINTER WEATHER")
+    if (grepl("WEATHER", eventType)) return("WINTER WEATHER")
+    if (grepl("BLACK ICE", eventType)) return("WINTER WEATHER")
+    if (grepl("LAKE EFFECT SNOW", eventType)) return("LAKE-EFFECT SNOW")
+    if (!(grepl("^LAKE", eventType)) & grepl("SNOW", eventType)) return("HEAVY SNOW")        
+    if (grepl("SURF", eventType)) return("HIGH SURF")
+    if (grepl("FREEZING SPRAY", eventType)) return("HIGH SURF")
+    if (grepl("FREEZING RAIN", eventType)) return("SLEET")
+    if (grepl("MIX", eventType)) return("SLEET")
+    if (grepl("FREEZ", eventType) & !(grepl("FOG", eventType))) return("FROST/FREEZE")
+    if (grepl("FROST", eventType)) return("FROST/FREEZE")
+    if (grepl("ASTRONOMICAL", eventType)) return("ASTRONOMICAL LOW TIDE")
+    if (grepl("COAST", eventType)) return("COASTAL FLOOD")
+    if (grepl("EROSION", eventType)) return("COASTAL FLOOD")
+    if (grepl("FLASH", eventType)) return("FLASH FLOOD")
+    if (grepl("HURRICANE", eventType)) return("HURRICANE (TYPHOON)")
+    if (grepl("TYPHOON", eventType)) return("HURRICANE (TYPHOON)")
+    if (grepl("CURRENTS", eventType)) return("RIP CURRENT")
+    if (grepl("FIRE", eventType)) return("WILDFIRE")
+    if (grepl("TIDAL", eventType)) return("STORM SURGE/TIDE")
+    if (grepl("SURGE", eventType)) return("STORM SURGE/TIDE")
+    if (grepl("BURST", eventType)) return("HEAVY RAIN")
+    if (grepl("RAIN", eventType)) return("HEAVY RAIN")
+    if (grepl(" SEAS", eventType)) return("MARINE HIGH WIND")
+    if (grepl("SWELLS", eventType)) return("MARINE HIGH WIND")
+    if (grepl("WIND AND WAVE", eventType)) return("MARINE HIGH WIND")
+    if (grepl("RIVER", eventType)) return("FLOOD")
+    if (grepl("DAM", eventType)) return("FLOOD")
+    if (grepl("HIGH WATER", eventType)) return("FLOOD")
+    if (grepl("HEAT", eventType)) return("EXCESSIVE HEAT")
+    if (grepl("BLOWING DUST", eventType)) return("DUST STORM")
+    if (grepl("LANDSPOUT", eventType)) return("DUST DEVIL")
+    if (grepl("^WIND", eventType)) return("HIGH WIND")
+    if (grepl("WINDS", eventType)) return("HIGH WIND")
+    if (grepl("GRADIENT WIND", eventType)) return("HIGH WIND")
+    if (grepl("G40", eventType)) return("HIGH WIND")
+    if (grepl("WHIRLWIND", eventType)) return("TORNADO")
+    if (grepl("SMALL HAIL", eventType)) return("HAIL")
+    if (grepl("ICE JAM", eventType)) return("OTHER")
+    if (grepl("URBAN", eventType)) return("OTHER")
+    if (grepl("SLIDE", eventType)) return("OTHER")
+    if (grepl("SLUMP", eventType)) return("OTHER")
+    if (grepl("GLAZE", eventType)) return("OTHER")
+    if (grepl("DROWN", eventType)) return("OTHER")
+    if (grepl("UNSEASONABLY", eventType)) return("OTHER")
+    if (grepl("ACCIDENT", eventType)) return("OTHER")
+    
+    return(eventType)
+}
+
+eventData$type <- sapply(eventData$type, convertToValidEventType)
+eventData <- eventData[eventData$type != "OTHER", ]
+
+par(mfrow = c(1, 2))
+boxplot(eventData$fatalities, eventData$injuries, 
+        main="Distribution of Fatalities/Injuries",
+        xlab="Fatalities | Injuries")
+
+boxplot(eventData$propertyDamage, eventData$cropDamage,
+        main="Distribution of Property/Crop Damage",
+        xlab="Property | Crop",
+        ylab="Number in Dollars")
+
+maxIndex = which.max(eventData$propertyDamage)
+print(eventData[maxIndex,])
+eventData$propertyDamage[maxIndex] <- eventData$propertyDamage[maxIndex] / 1000
 
 
+eventData$type <- factor(eventData$type)
 
 
-
+q <- qplot(type,x,data=fatalities,geom="bar", stat="identity")
+q + theme(axis.text.x = element_text(angle = -90, hjust = 0))
 
