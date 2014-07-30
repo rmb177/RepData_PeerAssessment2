@@ -1,7 +1,12 @@
+---
+output: pdf_document
+---
 # Analysis of U.S. Weather Events (1996-2011)
 
 ## Synopsis
-The purpose of this report is to analyze data from the [NOAA Storm Database](http://www.ncdc.noaa.gov/stormevents/) and determine which events are most harmful to population health and which events have the greatest economic consequences.
+The purpose of this report is to analyze data from the [NOAA Storm Database](http://www.ncdc.noaa.gov/stormevents/) to determine which events are most harmful to population health and which events have the greatest economic consequences. Population health is defined as the sum total of casualties and injuries caused by the weather event. Economic consequences are defined as the sum total of property and crop damage caused by the weather event.
+
+From the data, I found that tornados, excessive heat, and floods have caused the most fatalities/injuries since 1996. Hurricanes, storm surges, and floods have caused the most property/crop damage since 1996.
 
 ## Data Processing
 The raw data used for this analysis was downloaded from the following url:
@@ -12,37 +17,30 @@ I first read in the entire data set directly from the zipped csv file provided a
 
 <table cellspacing="10">
     <tr>
-        <th>Original Column Name</th>
         <th>Formatted Column Name</th>
         <th>Description</th>
     </tr>
     <tr>
-        <td>BGN_DATE</td>
         <td>year</td>
         <td>The year the weather event occurred.</td>
     </tr>
     <tr>
-        <td>EVTYPE</td>
         <td>type</td>
         <td>The type of the weather event.</td>
     </tr>
     <tr>
-        <td>FATALITIES</td>
         <td>fatalities</td>
         <td>The number of fatalities caused by the weather event.</td>
     </tr>
     <tr>
-        <td>INJURIES</td>
         <td>injuries</td>
         <td>The number of injuries caused by the weather event.</td>
     </tr>
     <tr>
-        <td>PROPDMG</td>
         <td>propertyDamage
         <td>The cost in dollars of property damage caused by the weather event.<td>
     </tr>
     <tr>
-        <td>PROPDMGEXP</td>
         <td>propertyDamageScale</td>
         <td>The scale of the property damage caused by the weather event.
             <ul>
@@ -53,12 +51,10 @@ I first read in the entire data set directly from the zipped csv file provided a
         </td>
     </tr>
     <tr>
-        <td>CROPDMG</td>
         <td>cropDamage
         <td>The cost in dollars of crop damage caused by the weather event.<td>
     </tr>
     <tr>
-        <td>CROPDMGEXP</td>
         <td>cropDamageScale</td>
         <td>The scale of the crop damage caused by the weather event.
             <ul>
@@ -73,6 +69,7 @@ I first read in the entire data set directly from the zipped csv file provided a
 ```{r readInData, cache=TRUE}
 # Set up date processing and convert all event types to upper case
 library("lubridate")
+
 setClass("myDate")
 setClass("typeUpper")
 setAs("character", "myDate", function(from) as.numeric(year(mdy_hms(from))))
@@ -96,13 +93,13 @@ colnames(eventData) <-
 
 
 #### Cleaning the data
-There are several things I do to clean up the raw data set. First, I filter out all weather events that happened before 1996. According to the [NOAA](http://www.ncdc.noaa.gov/stormevents/details.jsp?type=eventtype), 1996 is the year that information on all event types started to be collected. It also makes sense to limit the data to recent years as weather patterns change and dollar values in the data have not been adjusted for inflation.
+There are several things I do to clean up the raw data set. First, I filter out all weather events that happened before 1996. According to the [NOAA](http://www.ncdc.noaa.gov/stormevents/details.jsp?type=eventtype), 1996 is the first year that information on all event types started to be collected. It also makes sense to limit the data to recent years as weather patterns change and dollar values in the data have not been adjusted for inflation.
 
 ``` {r filterEarlyYears, cache=TRUE, dependson="readInData"}
 eventData <- eventData[eventData$year >= 1996, ]
 ```
 
-Next I eliminate events that do not have any fatalities/injuries and property/crop damage.
+Next I eliminate events that do not have any reported fatalities/injuries and property/crop damage.
 
 ``` {r removeEventsWithoutEffects, cache=TRUE, dependson="filterEarlyYears"}
 eventData <- eventData[eventData$fatalities != 0 | eventData$fatalities != 0 | 
@@ -155,7 +152,7 @@ validEventTypes <-
 ```
 
 
-After displaying the percentage of rows that contain invalid event values and those invalid values, it is clear we need to clean up the event type data.
+After displaying both the percentage of rows that contain invalid event values and the actual invalid values, it is clear the event data needs cleaning.
 ``` {r displayBadEventTypes, cache=TRUE, dependson="setNumericValues"}
 invalidEventTypes <- eventData[!(eventData$type %in% validEventTypes), ]
 print(paste("The percentage of events that have invalid event types = ", 
@@ -231,21 +228,23 @@ eventData <- eventData[eventData$type != "OTHER", ]
 ```
 
 #### Outliers
-Finally, I checked to see if there were any outliers in the data. I generated box plots for all of the values:
+Finally, I checked to see if there were any outliers in the data. I generated a panel plot that shows box plots for each vector of health/damage data:
 
 ``` {r findOutliers, cache=TRUE, dependson="cleanEventTypes"}
 par(mfrow = c(1, 2))
 boxplot(eventData$fatalities, eventData$injuries, 
         main="Distribution of Fatalities/Injuries",
-        xlab="Fatalities | Injuries")
+        xlab="Fatalities | Injuries",
+        cex.main=0.75)
 
 boxplot(eventData$propertyDamage, eventData$cropDamage,
         main="Distribution of Property/Crop Damage",
         xlab="Property | Crop",
-        ylab="Number of Dollars")
+        ylab="Number of Dollars",
+        cex.main=0.75)
 ```
 
-It appears there is an outlier in the property damage for a singe event. It appears likely that the data set records the damame in billions rather than millions. I determined the event for this oulier and converted the property damage to millions of dollars.
+It appears there is an outlier in the property damage for a single event. It appears likely that the data set records the damage in billions of dollars rather than millions of dollars. I determined the event for this outlier and converted the property damage to millions of dollars.
 
 ``` {r fixOutlier, cache=TRUE, dependson="findOutliers"}
 maxIndex = which.max(eventData$propertyDamage)
@@ -253,44 +252,98 @@ print(eventData[maxIndex,])
 eventData$propertyDamage[maxIndex] <- eventData$propertyDamage[maxIndex] / 1000
 ```
 
-## Analysis
-
-First draw a graph of the fatalities
+## Results
+First I plotted data to show the effects of weather events on population health. I created a panel plot that shows both the top 5 event types in terms of total fatalities/injuries and the top 5 event types in terms of average fatalities/injuries.
 
 ``` {r humanHealthPlot, dependson="fixOutlier"}
 library(ggplot2)
-eventData$type <- factor(eventData$type)
-healthData <- setNames(aggregate(eventData$fatalities + eventData$injuries, 
-                                 by=eventData[c("type")], 
-                                 FUN=sum), 
-                       c("type", "amount"))
-healthData <- healthData[order(-healthData$amount),][1:10,]
+library(gridExtra)
 
-ggplot(healthData,
-       aes(reorder(healthData$type, order(healthData$amount, decreasing=TRUE)), 
-           healthData$amount)) +
-       ggtitle("Effects of Weather Events on Population Health") +
-       xlab("Event Type") + 
-       ylab("Number of Fatalities and Injuries") +
-       geom_bar(stat="identity") +  
-       theme(axis.text.x = element_text(angle = -45, hjust = 0)) 
+eventData$type <- factor(eventData$type)
+healthDataSum <- setNames(aggregate(eventData$fatalities + eventData$injuries, 
+                                    by=eventData[c("type")], 
+                                    FUN=sum), 
+                          c("type", "amount"))
+healthDataSum <- healthDataSum[order(-healthDataSum$amount),][1:5,]
+
+healthDataAvg <- setNames(aggregate(eventData$fatalities + eventData$injuries, 
+                                    by=eventData[c("type")], 
+                                    FUN=mean), 
+                          c("type", "amount"))
+healthDataAvg <- healthDataAvg[order(-healthDataAvg$amount),][1:5,]
+
+p1 <- ggplot(healthDataSum,
+             aes(reorder(healthDataSum$type, order(healthDataSum$amount, decreasing=TRUE)), 
+                 healthDataSum$amount)) +
+      xlab("") +
+      ylab("Total Fatalities and Injuries") +
+      geom_bar(stat="identity") +  
+      theme(axis.text.x = element_text(angle = -60, hjust = 0)) 
+
+p2 <- ggplot(healthDataAvg,
+            aes(reorder(healthDataAvg$type, order(healthDataAvg$amount, decreasing=TRUE)), 
+                healthDataAvg$amount)) +
+      xlab("") +
+      ylab("Average Fatalities and Injuries") +
+      geom_bar(stat="identity") +  
+      theme(axis.text.x = element_text(angle = -60, hjust = 0)) 
+
+grid.arrange(p1, p2, ncol=2, 
+             main="Effects of Weather Events on Population Health")
 ```
 
-Now draw a graph of the damage
+The data shows that tornados stand out as the weather event that causes the most fatalities and injuries. Excessive heat also shows up in both plots, which should make it a focus for areas of the country where excessive heat can be an issue.
+
+
+Next, I plot the data to show the property and crop damage caused by weather events. Again, I create a panel plot that shows the top 5 events in terms of total damage and average damage.
 
 ``` {r damagePlot, dependson="fixOutlier"}
-damageData <- setNames(aggregate(eventData$propertyDamage + eventData$cropDamage, 
+library(ggplot2)
+library(gridExtra)
+
+damageDataSum <- setNames(aggregate(eventData$propertyDamage / 1000000 + eventData$cropDamage / 1000000, 
                                  by=eventData[c("type")], 
                                  FUN=sum), 
-                       c("type", "amount"))
-damageData <- damageData[order(-damageData$amount),][1:10,]
+                          c("type", "amount"))
+damageDataSum <- damageDataSum[order(-damageDataSum$amount),][1:5,]
 
-ggplot(damageData,
-       aes(reorder(damageData$type, order(damageData$amount, decreasing=TRUE)), 
-           damageData$amount)) +
-       ggtitle("Effects of Weather Events on Population Health") +
-       xlab("Event Type") + 
-       ylab("Number of Fatalities and Injuries") +
-       geom_bar(stat="identity") +  
-       theme(axis.text.x = element_text(angle = -45, hjust = 0))
+damageDataAvg <- setNames(aggregate(eventData$propertyDamage / 1000000 + eventData$cropDamage / 1000000, 
+                                 by=eventData[c("type")], 
+                                 FUN=mean), 
+                          c("type", "amount"))
+damageDataAvg <- damageDataAvg[order(-damageDataAvg$amount),][1:5,]
+
+p1 <- ggplot(damageDataSum,
+             aes(reorder(damageDataSum$type, order(damageDataSum$amount, decreasing=TRUE)), 
+                 damageDataSum$amount)) +
+      xlab("") + 
+      ylab("Total Damage") +
+      geom_bar(stat="identity") +  
+      theme(axis.text.x = element_text(angle = -60, hjust = 0))
+
+p2 <- ggplot(damageDataAvg,
+             aes(reorder(damageDataAvg$type, order(damageDataAvg$amount, decreasing=TRUE)), 
+                 damageDataAvg$amount)) +
+      xlab("") + 
+      ylab("Average Damage") +
+      geom_bar(stat="identity") +  
+      theme(axis.text.x = element_text(angle = -60, hjust = 0))
+
+grid.arrange(p1, p2, ncol=2, 
+             main=paste("Crop and Property Damage Caused by Weather Events",
+                        "(Damage in millions of dollars)",
+                        sep="\n"))
+```
+
+The data shows that both hurricanes and storm surges stand out as causing the most total and average damage of all of the weather events. It is also interesting to note that floods are in the top three of both health/damage plots in terms of overall effect.
+
+
+#### Further Analysis
+The NOAA database also provides information at the state level. Further research could be done to report on data at the state level and make regional recommendations. Plots could also show yearly trends or plots categorized by season.
+
+
+#### Environment
+The code/output for this report was generated in the following environment:
+``` {r sessionInfo}
+sessionInfo()
 ```

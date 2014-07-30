@@ -1,30 +1,13 @@
-# Set up date processing
+# Set up date processing and convert all event types to upper case
 library("lubridate")
+
 setClass("myDate")
 setClass("typeUpper")
 setAs("character", "myDate", function(from) as.numeric(year(mdy_hms(from))))
 setAs("character", "typeUpper", function(from) toupper(from))
 
-#colnames <- 
-#    c("STATE__",   "BGN_DATE",   "BGN_TIME",   "TIME_ZONE",  "COUNTY",     "COUNTYNAME",
-#      "STATE",     "EVTYPE",     "BGN_RANGE",  "BGN_AZI",    "BGN_LOCATI", "END_DATE",  
-#      "END_TIME",  "COUNTY_END", "COUNTYENDN", "END_RANGE",  "END_AZI",    "END_LOCATI",
-#      "LENGTH",    "WIDTH",      "F",          "MAG",        "FATALITIES", "INJURIES",  
-#      "PROPDMG",   "PROPDMGEXP", "CROPDMG",    "CROPDMGEXP", "WFO",        "STATEOFFIC",
-#      "ZONENAMES", "LATITUDE",   "LONGITUDE",  "LATITUDE_E", "LONGITUDE_", "REMARKS",
-#      "REFNUM")
 
-#readcols <-
-#    c("NULL",      "myDate",     "NULL",       "NULL",       "NULL",       "NULL",
-#      "NULL",      "character",  "NULL",       "NULL",       "NULL",       "NULL",  
-#      "NULL",      "NULL",       "NULL",       "NULL",       "NULL",       "NULL",
-#      "NULL",      "NULL",       "NULL",       "NULL",       "numeric",    "numeric",  
-#      "numeric",   "character",  "numeric",    "character",  "NULL",       "NULL",
-#      "NULL",      "NULL",       "NULL",       "NULL",       "NULL",       "NULL",
-#      "NULL")
-
-#f <- function()
-#{
+# Filter out unnecessary columns
 columnsToRead = c("NULL",
                   "myDate",
                   rep("NULL", 5),
@@ -33,13 +16,16 @@ columnsToRead = c("NULL",
                   "numeric",    "numeric",  "numeric",   "character",  "numeric",    "character",
                   rep("NULL", 9))
 
+# read data
 eventData = read.csv("repdata-data-StormData.csv.bz2", header=TRUE, colClasses=columnsToRead, comment.char="")
 colnames(eventData) <- 
     c("year", "type", "fatalities", "injuries", "propertyDamage", "propertyDamageScale", "cropDamage", "cropDamageScale")
 
+# filter out data prior to 1996 and any events that do not have health/damage values
 eventData <- eventData[eventData$year >= 1996, ]
 eventData <- eventData[eventData$fatalities != 0 | eventData$fatalities != 0 | 
-                       eventData$propertyDamage != 0 | eventData$cropDamage != 0, ]
+                           eventData$propertyDamage != 0 | eventData$cropDamage != 0, ]
+
 
 # return actual numeric value for damage data
 # expects a two-column dataframe that contains the damage and damage scale columns
@@ -81,8 +67,6 @@ invalidEventTypes <- eventData[!(eventData$type %in% validEventTypes), ]
 print(paste("The percentage of events that have invalid event types = ", 
             round(nrow(invalidEventTypes) / nrow(eventData) * 100, 2)))
 print(unique(invalidEventTypes$type))
-
-#}
 
 # Remove invalid event types
 convertToValidEventType <- function(eventType)
@@ -151,21 +135,89 @@ eventData <- eventData[eventData$type != "OTHER", ]
 par(mfrow = c(1, 2))
 boxplot(eventData$fatalities, eventData$injuries, 
         main="Distribution of Fatalities/Injuries",
-        xlab="Fatalities | Injuries")
+        xlab="Fatalities | Injuries",
+        cex.main=0.75)
 
 boxplot(eventData$propertyDamage, eventData$cropDamage,
         main="Distribution of Property/Crop Damage",
         xlab="Property | Crop",
-        ylab="Number in Dollars")
+        ylab="Number of Dollars",
+        cex.main=0.75)
 
 maxIndex = which.max(eventData$propertyDamage)
 print(eventData[maxIndex,])
 eventData$propertyDamage[maxIndex] <- eventData$propertyDamage[maxIndex] / 1000
 
 
+library("ggplot2")
+library("gridExtra")
+
+# Create plot figure for health information
 eventData$type <- factor(eventData$type)
+healthDataSum <- setNames(aggregate(eventData$fatalities + eventData$injuries, 
+                                    by=eventData[c("type")], 
+                                    FUN=sum), 
+                          c("type", "amount"))
+healthDataSum <- healthDataSum[order(-healthDataSum$amount),][1:5,]
+
+healthDataAvg <- setNames(aggregate(eventData$fatalities + eventData$injuries, 
+                                    by=eventData[c("type")], 
+                                    FUN=mean), 
+                          c("type", "amount"))
+healthDataAvg <- healthDataAvg[order(-healthDataAvg$amount),][1:5,]
+
+p1 <- ggplot(healthDataSum,
+             aes(reorder(healthDataSum$type, order(healthDataSum$amount, decreasing=TRUE)), 
+                 healthDataSum$amount)) +
+    xlab("") +
+    ylab("Total Fatalities and Injuries") +
+    geom_bar(stat="identity") +  
+    theme(axis.text.x = element_text(angle = -60, hjust = 0)) 
+
+p2 <- ggplot(healthDataAvg,
+             aes(reorder(healthDataAvg$type, order(healthDataAvg$amount, decreasing=TRUE)), 
+                 healthDataAvg$amount)) +
+    xlab("") +
+    ylab("Average Fatalities and Injuries") +
+    geom_bar(stat="identity") +  
+    theme(axis.text.x = element_text(angle = -60, hjust = 0)) 
+
+grid.arrange(p1, p2, ncol=2, 
+             main="Effects of Weather Events on Population Health")
 
 
-q <- qplot(type,x,data=fatalities,geom="bar", stat="identity")
-q + theme(axis.text.x = element_text(angle = -90, hjust = 0))
+# Create plot figure for damage information
+damageDataSum <- setNames(aggregate(eventData$propertyDamage / 1000000 + eventData$cropDamage / 1000000, 
+                                    by=eventData[c("type")], 
+                                    FUN=sum), 
+                          c("type", "amount"))
+damageDataSum <- damageDataSum[order(-damageDataSum$amount),][1:5,]
+
+damageDataAvg <- setNames(aggregate(eventData$propertyDamage / 1000000 + eventData$cropDamage / 1000000, 
+                                    by=eventData[c("type")], 
+                                    FUN=mean), 
+                          c("type", "amount"))
+damageDataAvg <- damageDataAvg[order(-damageDataAvg$amount),][1:5,]
+
+p1 <- ggplot(damageDataSum,
+             aes(reorder(damageDataSum$type, order(damageDataSum$amount, decreasing=TRUE)), 
+                 damageDataSum$amount)) +
+    xlab("") + 
+    ylab("Total Damage") +
+    geom_bar(stat="identity") +  
+    theme(axis.text.x = element_text(angle = -60, hjust = 0))
+
+p2 <- ggplot(damageDataAvg,
+             aes(reorder(damageDataAvg$type, order(damageDataAvg$amount, decreasing=TRUE)), 
+                 damageDataAvg$amount)) +
+    xlab("") + 
+    ylab("Average Damage") +
+    geom_bar(stat="identity") +  
+    theme(axis.text.x = element_text(angle = -60, hjust = 0))
+
+grid.arrange(p1, p2, ncol=2, 
+             main=paste("Crop and Property Damage Caused by Weather Events",
+                        "(Damage in millions of dollars)",
+                        sep="\n"))
+
 
