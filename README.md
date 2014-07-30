@@ -9,5 +9,5 @@ on major storms and weather events in the United States.
 
 For the assignment, we had to create a report that answered the following questions:
 
-# Across the United States, which types of events (as indicated in the EVTYPE variable) are most harmful with respect to population health?
-# Across the United States, which types of events have the greatest economic consequences?
+1. Across the United States, which types of events (as indicated in the EVTYPE variable) are most harmful with respect to population health?
+2. Across the United States, which types of events have the greatest economic consequences?
